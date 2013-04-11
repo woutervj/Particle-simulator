@@ -1,0 +1,16 @@
+.particle
+{
+	position: absolute;
+	border: none;
+	border-radius: 50%;
+	width: 20;
+	height: 20;
+	background-color: red;
+}
+
+#playground
+{
+	position: absolute;
+	border: 2px solid grey;
+	background-color: white;
+}
