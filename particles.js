@@ -369,7 +369,7 @@ function sPath(points)
 				uvy = p1.y-p0.y;
 			}
 		}
-		return normalize({x: uvx, y: uvy}); 
+		return normalize({base: pc, direction: {x: uvx, y: uvy}}); 
 	}
 	
 	this.draw = function(ctx)	{
@@ -439,4 +439,11 @@ function LJforce (p1, p2) {
 function dragLineForce(p)
 {
 	
+}
+
+function funnelDraw(context,u)
+{
+	for (var i=0; i<u.draglines.length; i++) {
+		u.dragLines[i].draw(context);
+	}
 }
