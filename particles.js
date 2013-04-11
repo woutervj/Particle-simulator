@@ -111,14 +111,14 @@ function universe(w,h)
 	this.drawfields=new Array();
 	
 	this.addField = function (field) {
-		//add the function to compute the field function (point)
+		//add the function to compute the field function (point, universe)
 		this.fields.push(field.func);
 		//add the variables associated with the field to allow computation and drawing
 		//should be prefixed with the field name.
 		for (var key in field.vars) {		
 			this[key] = field.vars[key];
 		}
-		//add a function to draw the field. function (context)
+		//add a function to draw the field. function (context, universe)
 		this.drawfields.push(field.draw);
 	}
 
@@ -241,7 +241,10 @@ function init()
 
 //these functions come in useful
 function sqr(x) { return x * x }
-function dist2(v, w) { return sqr(v.x - w.x) + sqr(v.y - w.y) }
+function dist2(v, w) { return sqr(v.x - w.x) + sqr(v.y - w.y); }
+function length2(p) {return sqr(p.x) + sqr(p.y);}
+function length(p) {return Math.sqrt(length2(p));}
+function normalize(p) {var l=length(p); return {x: p.x/l, y:p.y/l};}
 
 function distToSegmentSquared(p, v, w) {
   var l2 = dist2(v, w);
@@ -326,20 +329,47 @@ function sPath(points)
 		}
 		return pc;
 	}
+
+	this.closestPointOnLine = function(p,i) {
+		var p0 = this.points[i];
+		var p1 = this.points[i+1];
+		var l2 = dist2(p0,p1)
+	  	if (l2 ==0) return this.p1;
+	  	var t = ((p.x - p0.x) * (p1.x - p0.x) + (p.y - p0.y) * (p1.y - p0.y)) / l2;
+	  	if (t < 0) return p0;	
+	  	if (t > 1) return p1;
+	  	return { x: p0.x + t * (p1.x - p0.x), y: p0.y + t * (p1.y - p0.y) };
+	}
+
 	
 	this.parallelUnitVector = function (p)
 	{
-		var pc;
+		var pc, uvx, uvy;
 		var d = sqr(fieldWidth);
-		for (var i=0; i<this.points.length-1; i++) {
-			var pn = this.closestPointOnLine(p,i);
+		var p0= this.points[0];
+		var pc=p0;
+		var pn=p0;
+		var t;
+		for (var i=1; i<this.points.length; i++) {
+			var p1 = this.points[i];
+			var l2 = dist2(p0,p1)
+		  	if (l2 > 0) {
+				t = ((p.x - p0.x) * (p1.x - p0.x) + (p.y - p0.y) * (p1.y - p0.y)) / l2;
+				if (t < 0) pn = p0;	else if (t > 1) pn = p1;
+				else {
+					pn.x = p0.x + t * (p1.x - p0.x);
+					pn.y = p0.y + t * (p1.y - p0.y);
+				}		  	
+		  	}
 			var d2 = dist2(p,pn);
 			if (d2 < d) {
 				d = d2;
 				pc = pn;
+				uvx = p1.x-p0.x;
+				uvy = p1.y-p0.y;
 			}
 		}
-		
+		return normalize({x: uvx, y: uvy}); 
 	}
 	
 	this.draw = function(ctx)	{
@@ -352,7 +382,6 @@ function sPath(points)
 		}
 		ctx.stroke()			
 	}
-
 }
 
 
