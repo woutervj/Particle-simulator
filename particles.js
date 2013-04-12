@@ -123,20 +123,19 @@ function universe(w,h)
 	}
 
 	this.F = function (aParticle) {
-		var Fx = 0;
-		var Fy = 0;
-		var F;
+		var F = {x:0, y:0};
+		var Fa;
 		for (var i=0; i<this.particles.length; i++) {
 			if (this.particles[i] != aParticle) {
-				F = this.force(aParticle,this.particles[i]); 
-				Fx += F.x;
-				Fy += F.y;
+				Fa = this.force(aParticle,this.particles[i]); 
+				F.x += Fa.x;
+				F.y += Fa.y;
 			}
 		}
-		F = this.fieldForce(aParticle);
-		Fx += F.x;
-		Fy += F.y;		
-		return {x: Fx, y: Fy};
+		Fa = this.fieldForce(aParticle);
+		F.x += Fa.x;
+		F.y += Fa.y;		
+		return F;
 	};
 	
 	this.force = LJforce; 
@@ -245,6 +244,8 @@ function dist2(v, w) { return sqr(v.x - w.x) + sqr(v.y - w.y); }
 function length2(p) {return sqr(p.x) + sqr(p.y);}
 function length(p) {return Math.sqrt(length2(p));}
 function normalize(p) {var l=length(p); return {x: p.x/l, y:p.y/l};}
+function dotproduct(v1, v2) {return v1.x*v2.x+v1.y*v2.y;}
+function project(v1, v2) { var dp = dotproduct(v1, v2); return {x: dp*v1.x; y: dp*v1.y};}
 
 function distToSegmentSquared(p, v, w) {
   var l2 = dist2(v, w);
@@ -265,34 +266,33 @@ function distToSegment(p, v, w) { return Math.sqrt(distToSegmentSquared(p, v, w)
 
 function LJBox (p,u) {
 
-	var Fx = 0;
-	var Fy = p.m*g;
+	var F = {x: 0, y:p.m*g}
 
 	if (p.x < 3*d) { 
 		var delta = d/(2*p.x); 
 		d6=delta*delta*delta; 
 		d12 = d6*d6; 
-		Fx += G*(12*d12 - 6*d6)/(2*p.x);
+		F.x += G*(12*d12 - 6*d6)/(2*p.x);
 	};
 	if (p.y < 3*d) { 
 		var delta = d/p.y; 
 		d6=delta*delta*delta; 
 		d12 = d6*d6; 
-		Fy += G*(12*d12 - 6*d6)/(2*p.x);
+		F.y += G*(12*d12 - 6*d6)/(2*p.x);
 	};
 	if (p.x > u.w-3*d) { 
 		var delta = d/(2*(u.w-p.x)); 
 		d6=delta*delta*delta; 
 		d12 = d6*d6; 
-		Fx += -G*(12*d12 - 6*d6)/(2*(u.w-p.x));
+		F.x += -G*(12*d12 - 6*d6)/(2*(u.w-p.x));
 	};
 	if (p.y > u.h-3*d) { 
 		var delta = d/(2*(u.h-p.y)); 
 		d6=delta*delta*delta; 
 		d12 = d6*d6; 
-		Fy += -G*(12*d12 - 6*d6)/(2*(u.h-p.y));
+		F.y += -G*(12*d12 - 6*d6)/(2*(u.h-p.y));
 	};
-	return {x: Fx, y: Fy};		
+	return F;		
 }
 
 function sPath(points)
@@ -369,7 +369,7 @@ function sPath(points)
 				uvy = p1.y-p0.y;
 			}
 		}
-		return normalize({base: pc, direction: {x: uvx, y: uvy}}); 
+		return {base: pc, direction: normalize({x: uvx, y: uvy})}; 
 	}
 	
 	this.draw = function(ctx)	{
@@ -436,12 +436,25 @@ function LJforce (p1, p2) {
 	};
 
 
-function dragLineForce(p)
+var dragV = 5;
+var dragK = 0.3;
+var dragAttraction = 0.1;
+
+function dragLineForce(p,u)
 {
-	
+	var F = {x:0; y:0};
+	for (var i=0; i<u.draglines.length; i++) {
+		var ppv = u.draglines[i].parallelUnitVector;
+		var pv = pv.direction;
+		var Fp = {x: dragK * (dragV*pv.x-p.vx), y:dragK*(dragV*pv.y-p.y) };
+		var Fa = {x: dragAttraction * (ppv.base.x-p.x), y: 	dragAttraction * (ppv.base.y-p.y) };
+		F.x += Fp.x + Fa.x;
+		F.y += Fp.y + Fa.y;
+	}
+	return F;
 }
 
-function funnelDraw(context,u)
+function draglineDraw(context,u)
 {
 	for (var i=0; i<u.draglines.length; i++) {
 		u.dragLines[i].draw(context);
