@@ -1,4 +1,4 @@
-var N = 343;
+var N = 20;
 var U;
 var d = 20;
 var dw = 10;
@@ -8,10 +8,10 @@ var fieldHeight = 800;
 var G= 10;
 var k=G/d;
 var v0 = 0;
-var g = 40;
+var g = 0;
 var core = Math.pow(2,1/6)*d;
 
-var vmax = fieldWidth/10;
+var vmax = 5;
 var Fmax = 50;
 
 function particle(m,x,y,vx,vy)
@@ -97,6 +97,22 @@ function particle(m,x,y,vx,vy)
 		this.Fy = 0;
 	};
 }
+
+function vector(x,y)
+{
+	this.x = x;
+	this.y = y;
+	
+	this.length2 = function () { return (sqr(this.x) + sqr (this.y));};
+	this.length = function()  {return Math.sqrt(this.length2());}
+	this.dot = function (aVector) {return this.x*aVector.x + this.y*aVector.y;}
+}
+
+function fromPolar(r, theta)
+{
+	return new vector(r*Math.cos(theta), r*Math.sin(theta));
+}
+
 
 function universe(w,h)
 {
@@ -219,7 +235,7 @@ function universe(w,h)
     }
 }
 
-function init()
+function initFunnel()
 {
 	U = new universe(fieldWidth, fieldHeight);
 	U.canvas = document.getElementById('playground');
@@ -238,6 +254,21 @@ function init()
 	}
 }
 
+function init()
+{
+	U = new universe(fieldWidth, fieldHeight);
+	U.canvas = document.getElementById('playground');
+	U.canvas.width = U.w;
+	U.canvas.height = U.h;
+	U.addField({func:LJBox, draw: function (c,u) {}, vars: {}});
+	U.addField({func:dragLineForce, draw: dragLineDraw, vars: {draglines: dragPath}});
+	for (var i=0; i<N; i++) {
+		var p = new particle(1,20 + 100*Math.random(),340+100*Math.random(),2*v0*Math.random()-v0,2*v0*Math.random()-v0);
+		U.addParticle(p);
+		U.draw();
+	}
+}
+
 //these functions come in useful
 function sqr(x) { return x * x }
 function dist2(v, w) { return sqr(v.x - w.x) + sqr(v.y - w.y); }
@@ -245,7 +276,8 @@ function length2(p) {return sqr(p.x) + sqr(p.y);}
 function length(p) {return Math.sqrt(length2(p));}
 function normalize(p) {var l=length(p); return {x: p.x/l, y:p.y/l};}
 function dotproduct(v1, v2) {return v1.x*v2.x+v1.y*v2.y;}
-function project(v1, v2) { var dp = dotproduct(v1, v2); return {x: dp*v1.x; y: dp*v1.y};}
+function project(v1, v2) { var dp = dotproduct(v1, v2); return {x: dp*v1.x, y: dp*v1.y};}
+
 
 function distToSegmentSquared(p, v, w) {
   var l2 = dist2(v, w);
@@ -262,7 +294,7 @@ function distToSegment(p, v, w) { return Math.sqrt(distToSegmentSquared(p, v, w)
 
 
 //functions defining the force fields
-//Lennard-Jones with repulsive boundaries
+//Lennard-Jones with repulsive boundaries and gravity
 
 function LJBox (p,u) {
 
@@ -344,18 +376,18 @@ function sPath(points)
 	
 	this.parallelUnitVector = function (p)
 	{
-		var pc, uvx, uvy;
 		var d = sqr(fieldWidth);
 		var p0= this.points[0];
-		var pc=p0;
-		var pn=p0;
+		var pn={x:p0.x, y:p0.y};
+		var pc=pn;
 		var t;
+		var uv={x:0, y:1};
 		for (var i=1; i<this.points.length; i++) {
 			var p1 = this.points[i];
 			var l2 = dist2(p0,p1)
 		  	if (l2 > 0) {
 				t = ((p.x - p0.x) * (p1.x - p0.x) + (p.y - p0.y) * (p1.y - p0.y)) / l2;
-				if (t < 0) pn = p0;	else if (t > 1) pn = p1;
+				if (t < 0) pn = {x:p0.x, y:p0.y};	else if (t > 1) pn = {x:p1.x, y:p1.y};
 				else {
 					pn.x = p0.x + t * (p1.x - p0.x);
 					pn.y = p0.y + t * (p1.y - p0.y);
@@ -365,11 +397,12 @@ function sPath(points)
 			if (d2 < d) {
 				d = d2;
 				pc = pn;
-				uvx = p1.x-p0.x;
-				uvy = p1.y-p0.y;
+				uv.x = p1.x-p0.x;
+				uv.y = p1.y-p0.y;
 			}
+			p0 = this.points[i];
 		}
-		return {base: pc, direction: normalize({x: uvx, y: uvy})}; 
+		return {base: pc, direction: normalize(uv)}; 
 	}
 	
 	this.draw = function(ctx)	{
@@ -436,27 +469,31 @@ function LJforce (p1, p2) {
 	};
 
 
-var dragV = 5;
+var dragV =vmax*Math.sqrt(2);
 var dragK = 0.3;
-var dragAttraction = 0.1;
+var dragAttraction = 50;
+
+var dragPath = [
+	new sPath([71,362, 151,220, 394,580, 548,457, 554,251, 417,97])];
+	
 
 function dragLineForce(p,u)
 {
-	var F = {x:0; y:0};
+	var F = {x:0, y:0};
 	for (var i=0; i<u.draglines.length; i++) {
-		var ppv = u.draglines[i].parallelUnitVector;
-		var pv = pv.direction;
-		var Fp = {x: dragK * (dragV*pv.x-p.vx), y:dragK*(dragV*pv.y-p.y) };
-		var Fa = {x: dragAttraction * (ppv.base.x-p.x), y: 	dragAttraction * (ppv.base.y-p.y) };
+		var ppv = u.draglines[i].parallelUnitVector(p);
+		var pv = ppv.direction;
+		var Fp = {x: dragK * (dragV*pv.x-p.vx), y:dragK*(dragV*pv.y-p.vy) };
+		var Fa = {x: dragAttraction / (ppv.base.x-p.x), y: 	dragAttraction / (ppv.base.y-p.y) };
 		F.x += Fp.x + Fa.x;
 		F.y += Fp.y + Fa.y;
 	}
 	return F;
 }
 
-function draglineDraw(context,u)
+function dragLineDraw(context,u)
 {
 	for (var i=0; i<u.draglines.length; i++) {
-		u.dragLines[i].draw(context);
+		u.draglines[i].draw(context);
 	}
 }
