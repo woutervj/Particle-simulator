@@ -11,7 +11,7 @@ var v0 = 0;
 var g = 0;
 var core = Math.pow(2,1/6)*d;
 
-var vmax = 5;
+var vmax = 10;
 var Fmax = 50;
 
 function particle(m,x,y,vx,vy)
@@ -262,6 +262,7 @@ function init()
 	U.canvas.height = U.h;
 	U.addField({func:LJBox, draw: function (c,u) {}, vars: {}});
 	U.addField({func:dragLineForce, draw: dragLineDraw, vars: {draglines: dragPath}});
+	U.force = LJrepulsion;
 	for (var i=0; i<N; i++) {
 		var p = new particle(1,20 + 100*Math.random(),340+100*Math.random(),2*v0*Math.random()-v0,2*v0*Math.random()-v0);
 		U.addParticle(p);
@@ -454,19 +455,34 @@ function funnelDraw(context,u)
 }
 
 function LJforce (p1, p2) {
-		var y = p2.y-p1.y;
-		var x = p2.x-p1.x;
-		var r2 = y*y + x*x;
-		if (r2>7*d2) return {x:0,y:0};
-		var r = Math.sqrt(r2);
-		var delta = d2/r2;
-		var d6 = delta*delta*delta;
-		var d12 = d6*d6;
-		var phi = Math.atan2(y,x);
+	var y = p2.y-p1.y;
+	var x = p2.x-p1.x;
+	var r2 = y*y + x*x;
+	if (r2>7*d2) return {x:0,y:0};
+	var r = Math.sqrt(r2);
+	var delta = d2/r2;
+	var d6 = delta*delta*delta;
+	var d12 = d6*d6;
+	var phi = Math.atan2(y,x);
 
-		var F=-G*(12*d12 - 6*d6)/r;
-		return {x: F*Math.cos(phi), y: F*Math.sin(phi)};
-	};
+	var F=-G*(12*d12 - 6*d6)/r;
+	return {x: F*Math.cos(phi), y: F*Math.sin(phi)};
+}
+
+function LJrepulsion (p1, p2) {
+	var y = p2.y-p1.y;
+	var x = p2.x-p1.x;
+	var r2 = y*y + x*x;
+	if (r2>7*d2) return {x:0,y:0};
+	var r = Math.sqrt(r2);
+	var delta = d2/r2;
+	var d6 = delta*delta*delta;
+	var d12 = d6*d6;
+	var phi = Math.atan2(y,x);
+
+	var F=-G*12*d12/r;
+	return {x: F*Math.cos(phi), y: F*Math.sin(phi)};
+}
 
 
 var dragV =vmax*Math.sqrt(2);
@@ -484,7 +500,11 @@ function dragLineForce(p,u)
 		var ppv = u.draglines[i].parallelUnitVector(p);
 		var pv = ppv.direction;
 		var Fp = {x: dragK * (dragV*pv.x-p.vx), y:dragK*(dragV*pv.y-p.vy) };
-		var Fa = {x: dragAttraction / (ppv.base.x-p.x), y: 	dragAttraction / (ppv.base.y-p.y) };
+		var Fa;
+		var dd2 = dist2(ppv.base, p);
+		if (dd2 < d2) { Fa = {x:0, y:0} } else {
+			 Fa = {x: dragAttraction / (ppv.base.x-p.x), y: 	dragAttraction / (ppv.base.y-p.y) };
+		}
 		F.x += Fp.x + Fa.x;
 		F.y += Fp.y + Fa.y;
 	}
